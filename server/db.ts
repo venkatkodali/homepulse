@@ -111,7 +111,49 @@ export function initSchema() {
       row_count INTEGER,
       success INTEGER
     );
+
+    CREATE TABLE IF NOT EXISTS app_metadata (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
+}
+
+/**
+ * Metadata key-value accessors for cross-device sync coordination
+ */
+export function getMetadata(key: string, defaultValue = ''): string {
+  try {
+    const row = db.prepare('SELECT value FROM app_metadata WHERE key = ?').get(key) as { value: string } | undefined;
+    return row ? row.value : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+}
+
+export function setMetadata(key: string, value: string): void {
+  try {
+    db.prepare(`
+      INSERT INTO app_metadata (key, value, updated_at)
+      VALUES (?, ?, datetime('now'))
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+    `).run(key, value);
+  } catch (e) {
+    // Ignore error
+  }
+}
+
+export function getDataVersion(): number {
+  const val = getMetadata('data_version', '0');
+  const num = parseInt(val, 10);
+  return isNaN(num) || num === 0 ? 1 : num;
+}
+
+export function bumpDataVersion(): number {
+  const next = Date.now();
+  setMetadata('data_version', next.toString());
+  return next;
 }
 
 /**
@@ -434,6 +476,7 @@ export function syncAllData(data: {
   });
 
   syncTx();
+  bumpDataVersion();
   return getDatabaseStatus();
 }
 

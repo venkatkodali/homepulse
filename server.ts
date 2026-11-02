@@ -14,6 +14,8 @@ import {
   syncAllData,
   fetchAllData,
   initSchema,
+  getDataVersion,
+  bumpDataVersion,
 } from './server/db';
 import {
   DEFAULT_CATEGORIES,
@@ -156,8 +158,9 @@ app.post('/api/sqlite/reset', (req, res) => {
       recurringTransactions: DEFAULT_RECURRING_TRANSACTIONS,
       savingsGoals: DEFAULT_SAVINGS_GOALS,
     });
+    const version = getDataVersion();
     const status = getDatabaseStatus();
-    res.json({ success: true, message: 'Database reset to default template', status });
+    res.json({ success: true, message: 'Database reset to default template', status, version });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -174,21 +177,32 @@ app.post('/api/sqlite/clear', (req, res) => {
       recurringTransactions: clearEntities ? [] : undefined,
       savingsGoals: clearEntities ? [] : undefined,
     });
+    const version = getDataVersion();
     const status = getDatabaseStatus();
-    res.json({ success: true, message: 'Database transactions and records cleared', status });
+    res.json({ success: true, message: 'Database transactions and records cleared', status, version });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
 // -------------------------------------------------------------
-// 2. Data Persistence & Synchronization APIs
+// 2. Data Persistence & Synchronization APIs (Multi-Device Engine)
 // -------------------------------------------------------------
+
+app.get('/api/sync/version', (req, res) => {
+  try {
+    const version = getDataVersion();
+    res.json({ success: true, version });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 app.get('/api/data', (req, res) => {
   try {
     const data = fetchAllData();
-    res.json({ success: true, data });
+    const version = getDataVersion();
+    res.json({ success: true, data, version });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -205,7 +219,8 @@ app.post('/api/sync', (req, res) => {
       recurringTransactions,
       savingsGoals,
     });
-    res.json({ success: true, status });
+    const version = getDataVersion();
+    res.json({ success: true, status, version });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

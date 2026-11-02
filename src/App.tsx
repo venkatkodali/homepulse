@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   CategoryInfo,
   CurrencyConfig,
@@ -191,13 +191,67 @@ export default function App() {
     localStorage.setItem('homepulse_recurring', JSON.stringify(recurringTransactions));
   }, [recurringTransactions]);
 
-  // Hydrate from SQLite database on initial load if available
-  const handleRefreshDataFromDb = async () => {
-    const isCleared = localStorage.getItem('homepulse_data_cleared') === 'true';
-    if (isCleared) {
-      return;
-    }
+  // -------------------------------------------------------------
+  // Multi-Device Real-Time Sync Engine
+  // -------------------------------------------------------------
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'error'>('synced');
+  const lastSyncedVersionRef = useRef<number>(0);
+  const isPullingFromServerRef = useRef<boolean>(false);
+  const pendingSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Push local changes to central SQLite database
+  const triggerPushToServer = useCallback(
+    (overrideData?: {
+      transactions?: Transaction[];
+      categories?: CategoryInfo[];
+      subscriptions?: Subscription[];
+      debts?: DebtItem[];
+      recurringTransactions?: RecurringTransaction[];
+      savingsGoals?: SavingsGoal[];
+    }) => {
+      if (isPullingFromServerRef.current) return;
+      if (pendingSyncTimerRef.current) {
+        clearTimeout(pendingSyncTimerRef.current);
+      }
+      setSyncStatus('syncing');
+
+      pendingSyncTimerRef.current = setTimeout(async () => {
+        try {
+          const payload = {
+            transactions: overrideData?.transactions ?? transactions,
+            categories: overrideData?.categories ?? categories,
+            subscriptions: overrideData?.subscriptions ?? subscriptions,
+            debts: overrideData?.debts ?? debts,
+            recurringTransactions: overrideData?.recurringTransactions ?? recurringTransactions,
+            savingsGoals: overrideData?.savingsGoals ?? savingsGoals,
+          };
+          const res = await fetch('/api/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const json = await res.json();
+          if (json.success) {
+            if (json.version) {
+              lastSyncedVersionRef.current = json.version;
+            }
+            setSyncStatus('synced');
+          } else {
+            setSyncStatus('error');
+          }
+        } catch {
+          setSyncStatus('error');
+        }
+      }, 250);
+    },
+    [transactions, categories, subscriptions, debts, recurringTransactions, savingsGoals]
+  );
+
+  // Pull latest data from central SQLite database
+  const handleRefreshDataFromDb = useCallback(async (showIndicator = true) => {
     try {
+      if (showIndicator) setSyncStatus('syncing');
+      isPullingFromServerRef.current = true;
       const res = await fetch('/api/data');
       if (res.ok) {
         const json = await res.json();
@@ -211,41 +265,94 @@ export default function App() {
             savingsGoals: dbGoals,
           } = json.data;
 
-          if (Array.isArray(dbTx) && dbTx.length > 0) setTransactions(dbTx);
-          if (Array.isArray(dbCat) && dbCat.length > 0) setCategories(dbCat);
-          if (Array.isArray(dbSub) && dbSub.length > 0) setSubscriptions(dbSub);
-          if (Array.isArray(dbDebts) && dbDebts.length > 0) setDebts(dbDebts);
-          if (Array.isArray(dbRec) && dbRec.length > 0) setRecurringTransactions(dbRec);
-          if (Array.isArray(dbGoals) && dbGoals.length > 0) setSavingsGoals(dbGoals);
+          if (Array.isArray(dbTx)) {
+            setTransactions(dbTx);
+            localStorage.setItem('homepulse_transactions', JSON.stringify(dbTx));
+          }
+          if (Array.isArray(dbCat) && dbCat.length > 0) {
+            setCategories(dbCat);
+            localStorage.setItem('homepulse_categories', JSON.stringify(dbCat));
+          }
+          if (Array.isArray(dbSub)) {
+            setSubscriptions(dbSub);
+            localStorage.setItem('homepulse_subscriptions', JSON.stringify(dbSub));
+          }
+          if (Array.isArray(dbDebts)) {
+            setDebts(dbDebts);
+            localStorage.setItem('homepulse_debts', JSON.stringify(dbDebts));
+          }
+          if (Array.isArray(dbRec)) {
+            setRecurringTransactions(dbRec);
+            localStorage.setItem('homepulse_recurring', JSON.stringify(dbRec));
+          }
+          if (Array.isArray(dbGoals)) {
+            setSavingsGoals(dbGoals);
+            localStorage.setItem('homepulse_goals', JSON.stringify(dbGoals));
+          }
+
+          if (json.version) {
+            lastSyncedVersionRef.current = json.version;
+          }
+          if (showIndicator) setSyncStatus('synced');
         }
       }
-    } catch (err) {
-      // Backend might be offline or standalone, falls back safely to state
+    } catch {
+      if (showIndicator) setSyncStatus('error');
+    } finally {
+      setTimeout(() => {
+        isPullingFromServerRef.current = false;
+      }, 150);
     }
-  };
-
-  useEffect(() => {
-    handleRefreshDataFromDb();
   }, []);
 
-  // Atomic sync to SQLite database
+  // Hydrate on initial mount from authoritative server database
+  useEffect(() => {
+    handleRefreshDataFromDb(true);
+  }, [handleRefreshDataFromDb]);
+
+  // Real-time cross-device poller & tab focus listener
+  useEffect(() => {
+    const checkServerVersion = async () => {
+      if (document.hidden || isPullingFromServerRef.current) return;
+      try {
+        const res = await fetch('/api/sync/version');
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success && json.version && json.version > lastSyncedVersionRef.current) {
+          // Newer data exists on server from another device
+          await handleRefreshDataFromDb(false);
+        }
+      } catch {
+        // Silently handle transient offline state
+      }
+    };
+
+    // Lightweight version check every 3.5 seconds
+    const interval = setInterval(checkServerVersion, 3500);
+
+    // Immediate check when window regains focus or becomes visible (e.g. mobile unlock or tab switch)
+    const onFocus = () => {
+      checkServerVersion();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkServerVersion();
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [handleRefreshDataFromDb]);
+
+  // Manual atomic sync for SqliteView
   const handleSyncLocalStateToDb = async () => {
-    const res = await fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        transactions,
-        categories,
-        subscriptions,
-        debts,
-        recurringTransactions,
-        savingsGoals,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Failed to sync with SQLite');
-    }
+    triggerPushToServer();
   };
 
   // Navigation tab
@@ -271,21 +378,27 @@ export default function App() {
       ...newRule,
       id: `rec-${Date.now()}`,
     };
-    setRecurringTransactions((prev) => [created, ...prev]);
+    const next = [created, ...recurringTransactions];
+    setRecurringTransactions(next);
+    triggerPushToServer({ recurringTransactions: next });
   };
 
   const handleUpdateRecurring = (updated: RecurringTransaction) => {
-    setRecurringTransactions((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    const next = recurringTransactions.map((r) => (r.id === updated.id ? updated : r));
+    setRecurringTransactions(next);
+    triggerPushToServer({ recurringTransactions: next });
   };
 
   const handleDeleteRecurring = (id: string) => {
-    setRecurringTransactions((prev) => prev.filter((r) => r.id !== id));
+    const next = recurringTransactions.filter((r) => r.id !== id);
+    setRecurringTransactions(next);
+    triggerPushToServer({ recurringTransactions: next });
   };
 
   const handleToggleRecurringActive = (id: string) => {
-    setRecurringTransactions((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, active: !r.active } : r))
-    );
+    const next = recurringTransactions.map((r) => (r.id === id ? { ...r, active: !r.active } : r));
+    setRecurringTransactions(next);
+    triggerPushToServer({ recurringTransactions: next });
   };
 
   const handlePostRecurringToLedger = (rule: RecurringTransaction, date: string) => {
@@ -301,7 +414,9 @@ export default function App() {
       tags: ['recurring', rule.frequency],
       notes: `Recurring transaction occurrence: ${rule.notes || rule.name}`,
     };
-    setTransactions((prev) => [newTx, ...prev]);
+    const next = [newTx, ...transactions];
+    setTransactions(next);
+    triggerPushToServer({ transactions: next });
   };
 
   // Handlers
@@ -310,32 +425,40 @@ export default function App() {
       ...newTx,
       id: `tx-${Date.now()}`,
     };
-    setTransactions((prev) => [created, ...prev]);
+    const next = [created, ...transactions];
+    setTransactions(next);
+    triggerPushToServer({ transactions: next });
   };
 
   const handleSaveEditedTransaction = (updated: Transaction) => {
-    setTransactions((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    const next = transactions.map((t) => (t.id === updated.id ? updated : t));
+    setTransactions(next);
+    triggerPushToServer({ transactions: next });
   };
 
   const handleDeleteTransaction = (id: string) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
+    const next = transactions.filter((t) => t.id !== id);
+    setTransactions(next);
+    triggerPushToServer({ transactions: next });
   };
 
   const handleBatchDeleteTransactions = (ids: string[]) => {
     const idSet = new Set(ids);
-    setTransactions((prev) => prev.filter((t) => !idSet.has(t.id)));
+    const next = transactions.filter((t) => !idSet.has(t.id));
+    setTransactions(next);
+    triggerPushToServer({ transactions: next });
   };
 
   const handleUpdateCategoryBudget = (categoryId: string, newBudget: number) => {
-    setCategories((prev) =>
-      prev.map((c) => (c.id === categoryId ? { ...c, monthlyBudget: newBudget } : c))
-    );
+    const next = categories.map((c) => (c.id === categoryId ? { ...c, monthlyBudget: newBudget } : c));
+    setCategories(next);
+    triggerPushToServer({ categories: next });
   };
 
   const handleUpdateGoalAmount = (goalId: string, added: number) => {
-    setSavingsGoals((prev) =>
-      prev.map((g) => (g.id === goalId ? { ...g, currentAmount: g.currentAmount + added } : g))
-    );
+    const next = savingsGoals.map((g) => (g.id === goalId ? { ...g, currentAmount: g.currentAmount + added } : g));
+    setSavingsGoals(next);
+    triggerPushToServer({ savingsGoals: next });
   };
 
   const handleAddSavingsGoal = (goal: Omit<SavingsGoal, 'id'>) => {
@@ -343,17 +466,21 @@ export default function App() {
       ...goal,
       id: `goal-${Date.now()}`,
     };
-    setSavingsGoals((prev) => [...prev, created]);
+    const next = [...savingsGoals, created];
+    setSavingsGoals(next);
+    triggerPushToServer({ savingsGoals: next });
   };
 
   const handleToggleSubscription = (id: string) => {
-    setSubscriptions((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, active: !s.active } : s))
-    );
+    const next = subscriptions.map((s) => (s.id === id ? { ...s, active: !s.active } : s));
+    setSubscriptions(next);
+    triggerPushToServer({ subscriptions: next });
   };
 
   const handleDeleteSubscription = (id: string) => {
-    setSubscriptions((prev) => prev.filter((s) => s.id !== id));
+    const next = subscriptions.filter((s) => s.id !== id);
+    setSubscriptions(next);
+    triggerPushToServer({ subscriptions: next });
   };
 
   const handleAddSubscription = (sub: Omit<Subscription, 'id'>) => {
@@ -361,15 +488,15 @@ export default function App() {
       ...sub,
       id: `sub-${Date.now()}`,
     };
-    setSubscriptions((prev) => [...prev, created]);
+    const next = [...subscriptions, created];
+    setSubscriptions(next);
+    triggerPushToServer({ subscriptions: next });
   };
 
   const handleImportTransactions = (imported: Transaction[], replace = false) => {
-    if (replace) {
-      setTransactions(imported);
-    } else {
-      setTransactions((prev) => [...imported, ...prev]);
-    }
+    const next = replace ? imported : [...imported, ...transactions];
+    setTransactions(next);
+    triggerPushToServer({ transactions: next });
   };
 
   const handleAddDebt = (debt: Omit<DebtItem, 'id'>) => {
@@ -377,15 +504,21 @@ export default function App() {
       ...debt,
       id: `debt-${Date.now()}`,
     };
-    setDebts((prev) => [...prev, created]);
+    const next = [...debts, created];
+    setDebts(next);
+    triggerPushToServer({ debts: next });
   };
 
   const handleUpdateDebt = (updated: DebtItem) => {
-    setDebts((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+    const next = debts.map((d) => (d.id === updated.id ? updated : d));
+    setDebts(next);
+    triggerPushToServer({ debts: next });
   };
 
   const handleDeleteDebt = (id: string) => {
-    setDebts((prev) => prev.filter((d) => d.id !== id));
+    const next = debts.filter((d) => d.id !== id);
+    setDebts(next);
+    triggerPushToServer({ debts: next });
   };
 
   const handleMakeDebtPayment = (
@@ -394,16 +527,16 @@ export default function App() {
     recordExpense: boolean,
     debtName: string
   ) => {
-    setDebts((prev) =>
-      prev.map((d) => {
-        if (d.id === debtId) {
-          const newBalance = Math.max(0, d.balance - amount);
-          return { ...d, balance: newBalance };
-        }
-        return d;
-      })
-    );
+    const nextDebts = debts.map((d) => {
+      if (d.id === debtId) {
+        const newBalance = Math.max(0, d.balance - amount);
+        return { ...d, balance: newBalance };
+      }
+      return d;
+    });
+    setDebts(nextDebts);
 
+    let nextTx = transactions;
     if (recordExpense) {
       const newTx: Transaction = {
         id: `tx-${Date.now()}`,
@@ -417,19 +550,21 @@ export default function App() {
         tags: ['debt', 'payoff'],
         notes: `Logged payment towards ${debtName}`,
       };
-      setTransactions((prev) => [newTx, ...prev]);
+      nextTx = [newTx, ...transactions];
+      setTransactions(nextTx);
     }
+
+    triggerPushToServer({ debts: nextDebts, transactions: nextTx });
   };
 
-  const handleClearAllData = (options?: { clearAllEntities?: boolean }) => {
+  const handleClearAllData = async (options?: { clearAllEntities?: boolean }) => {
     // 1. Mark clean slate in localStorage
     localStorage.setItem('homepulse_data_cleared', 'true');
 
-    // 2. Clear transactions state & localStorage
+    // 2. Clear state & localStorage
     setTransactions([]);
     localStorage.setItem('homepulse_transactions', JSON.stringify([]));
 
-    // 3. Clear other sample entities if requested
     if (options?.clearAllEntities) {
       setSubscriptions([]);
       setDebts([]);
@@ -441,28 +576,25 @@ export default function App() {
       localStorage.setItem('homepulse_goals', JSON.stringify([]));
     }
 
-    // 4. Sync cleared state to SQLite database
-    fetch('/api/sqlite/clear', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clearEntities: !!options?.clearAllEntities }),
-    }).catch(() => {
-      fetch('/api/sync', {
+    // 3. Sync cleared state to central SQLite database
+    setSyncStatus('syncing');
+    try {
+      const res = await fetch('/api/sqlite/clear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transactions: [],
-          categories,
-          subscriptions: options?.clearAllEntities ? [] : subscriptions,
-          debts: options?.clearAllEntities ? [] : debts,
-          recurringTransactions: options?.clearAllEntities ? [] : recurringTransactions,
-          savingsGoals: options?.clearAllEntities ? [] : savingsGoals,
-        }),
-      }).catch(() => {});
-    });
+        body: JSON.stringify({ clearEntities: !!options?.clearAllEntities }),
+      });
+      const json = await res.json();
+      if (json.version) {
+        lastSyncedVersionRef.current = json.version;
+      }
+      setSyncStatus('synced');
+    } catch {
+      setSyncStatus('error');
+    }
   };
 
-  const handleResetDemoData = () => {
+  const handleResetDemoData = async () => {
     localStorage.removeItem('homepulse_data_cleared');
     setTransactions(INITIAL_TRANSACTIONS);
     setCategories(DEFAULT_CATEGORIES);
@@ -480,7 +612,17 @@ export default function App() {
     localStorage.setItem('homepulse_goals', JSON.stringify(DEFAULT_SAVINGS_GOALS));
     localStorage.setItem('homepulse_debts', JSON.stringify(DEFAULT_DEBTS));
 
-    fetch('/api/sqlite/reset', { method: 'POST' }).catch(() => {});
+    setSyncStatus('syncing');
+    try {
+      const res = await fetch('/api/sqlite/reset', { method: 'POST' });
+      const json = await res.json();
+      if (json.version) {
+        lastSyncedVersionRef.current = json.version;
+      }
+      setSyncStatus('synced');
+    } catch {
+      setSyncStatus('error');
+    }
   };
 
   return (
@@ -496,6 +638,8 @@ export default function App() {
         onOpenAddModal={() => setIsAddModalOpen(true)}
         onOpenDataModal={() => setIsExportImportModalOpen(true)}
         onOpenReportModal={() => setIsReportModalOpen(true)}
+        syncStatus={syncStatus}
+        onTriggerSync={() => handleRefreshDataFromDb(true)}
       />
 
       {/* 2. Main Viewport Container */}

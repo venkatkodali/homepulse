@@ -160,7 +160,27 @@ This file records the prompts and requests provided to generate and enhance **Ho
 - Enhanced the **Dashboard View (`DashboardView.tsx`)**:
   - Made the **"Monthly Budget Cap"** metric card directly clickable with an interactive hover effect and `Edit ↗` / `Manage →` buttons that jump straight to the Budgets management tab.
   - Added an **"Edit Caps ↗"** quick-action button in the **Monthly Budget Progress Bar (`MonthlyBudgetProgressBar.tsx`)** header for one-click access.
-- Confirmed inline category target editing via the **Budgets** view table (`BudgetsView.tsx`) where clicking the ✏️ pencil icon saves updated category caps to both local storage and the SQLite database.
+### 11. Real-Time Multi-Device Synchronization Engine
+> **User Command**:
+> *"Please check multi-device, not working as expected"*
+
+**Root cause analysis:**
+- Data state was previously persisted only in the browser's local storage (`localStorage`), which is completely isolated to a single client device.
+- Local mutations (adding transactions, editing, deleting, adjusting budgets, clearing sample data) only mutated React state and local storage, without automatically pushing to the central SQLite server database.
+- Secondary devices (mobile phones, laptops, separate browsers) never received updates from the primary device and initialized with stale mock data.
+
+**Implementation details:**
+- **Central Authoritative SQLite Sync**:
+  - Added `app_metadata` table in SQLite schema to track `data_version` timestamps across all connected devices.
+  - Added `GET /api/sync/version` lightweight polling endpoint on Express backend.
+  - Added timestamp versioning to `GET /api/data`, `POST /api/sync`, `POST /api/sqlite/clear`, and `POST /api/sqlite/reset`.
+- **Automatic Auto-Sync on Mutations**:
+  - Implemented debounced auto-sync (`triggerPushToServer`) across all user mutations (adding transactions, editing, deleting, budget updates, debt payoff, subscriptions, recurring rules, CSV imports, and clean-slate resets).
+- **Live Cross-Device Poller & Tab Focus Listeners**:
+  - Added a 3.5-second lightweight version poller on the frontend.
+  - Added immediate sync triggers on `window.focus` and `document.visibilitychange` so waking up a phone screen or switching tabs instantly refreshes from the central database.
+- **Live Sync Indicator**:
+  - Added a real-time sync status badge (`Live Sync` / `Syncing...`) in `TopBar.tsx` providing visual confirmation of database connectivity and 1-click manual refresh.
 
 ---
 

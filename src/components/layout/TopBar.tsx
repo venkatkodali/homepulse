@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Sun, Moon, Database, ChevronDown, FileText } from 'lucide-react';
+import { Plus, Sun, Moon, Database, ChevronDown, FileText, RefreshCw } from 'lucide-react';
 import { CurrencyConfig, ViewTab } from '../../types';
 import { SUPPORTED_CURRENCIES } from '../../data/initialData';
 
@@ -13,6 +13,8 @@ interface TopBarProps {
   onOpenAddModal: () => void;
   onOpenDataModal: () => void;
   onOpenReportModal: () => void;
+  syncStatus?: 'synced' | 'syncing' | 'error';
+  onTriggerSync?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -25,6 +27,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenAddModal,
   onOpenDataModal,
   onOpenReportModal,
+  syncStatus = 'synced',
+  onTriggerSync,
 }) => {
   const navTabs: { id: ViewTab; label: string }[] = [
     { id: 'dashboard', label: 'Dashboard' },
@@ -130,6 +134,31 @@ export const TopBar: React.FC<TopBarProps> = ({
             className="rounded-md border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
           >
             <FileText className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Multi-Device Cloud Sync Status Indicator */}
+          <button
+            onClick={onTriggerSync}
+            title={
+              syncStatus === 'syncing'
+                ? 'Syncing with central SQLite database...'
+                : syncStatus === 'error'
+                ? 'Connection issue. Click to retry syncing with database'
+                : 'Connected to central database. Multi-device live sync active. Click to refresh.'
+            }
+            aria-label="Multi-device sync status"
+            className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50/70 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+          >
+            {syncStatus === 'syncing' ? (
+              <RefreshCw className="h-3 w-3 animate-spin text-blue-600 dark:text-blue-400" />
+            ) : syncStatus === 'error' ? (
+              <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+            ) : (
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-2xs" />
+            )}
+            <span className="hidden sm:inline text-slate-700 dark:text-slate-300">
+              {syncStatus === 'syncing' ? 'Syncing...' : 'Live Sync'}
+            </span>
           </button>
 
           {/* Primary Action Button */}
