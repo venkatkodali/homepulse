@@ -234,9 +234,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Metric 4: Monthly Budget Headroom */}
-        <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-slate-800/80 dark:bg-slate-900">
+        <div
+          onClick={onNavigateToBudgets}
+          className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-slate-800/80 dark:bg-slate-900 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-700/60 transition-all group"
+          title="Click to adjust category budget caps in the Budgets tab"
+        >
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span>Monthly Budget Cap</span>
+            <span className="flex items-center gap-1.5 font-medium group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+              <span>Monthly Budget Cap</span>
+              <span className="text-[10px] text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded font-normal">
+                Edit ↗
+              </span>
+            </span>
             <PieChart className="h-4 w-4 text-indigo-500" />
           </div>
           <div
@@ -248,11 +257,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             {formatCurrency(Math.max(0, metrics.budgetRemaining), currency)}
           </div>
-          <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between">
             <span>
               {metrics.budgetRemaining >= 0
                 ? `${formatCurrency(metrics.totalBudget, currency)} target allocated`
                 : `${formatCurrency(Math.abs(metrics.budgetRemaining), currency)} over plan`}
+            </span>
+            <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium group-hover:underline">
+              Manage →
             </span>
           </div>
         </div>
@@ -265,6 +277,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         currency={currency}
         selectedCategory={selectedCategory}
         onSelectCategory={onSelectCategoryFilter}
+        onNavigateToBudgets={onNavigateToBudgets}
       />
 
       {/* Primary Trend Chart Section */}

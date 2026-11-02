@@ -18,6 +18,7 @@ interface MonthlyBudgetProgressBarProps {
   currency: CurrencyConfig;
   onSelectCategory?: (categoryId: string | null) => void;
   selectedCategory?: string | null;
+  onNavigateToBudgets?: () => void;
 }
 
 export const MonthlyBudgetProgressBar: React.FC<MonthlyBudgetProgressBarProps> = ({
@@ -26,6 +27,7 @@ export const MonthlyBudgetProgressBar: React.FC<MonthlyBudgetProgressBarProps> =
   currency,
   onSelectCategory,
   selectedCategory,
+  onNavigateToBudgets,
 }) => {
   const [displayMode, setDisplayMode] = useState<'category_segments' | 'unified'>('category_segments');
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
@@ -215,6 +217,17 @@ export const MonthlyBudgetProgressBar: React.FC<MonthlyBudgetProgressBarProps> =
               <span className="sm:hidden">Fill</span>
             </button>
           </div>
+
+          {onNavigateToBudgets && (
+            <button
+              type="button"
+              onClick={onNavigateToBudgets}
+              className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700/60 transition-colors"
+              title="Change category monthly budget caps in the Budgets tab"
+            >
+              <span>Edit Caps ↗</span>
+            </button>
+          )}
         </div>
       </div>
 

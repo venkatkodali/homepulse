@@ -151,7 +151,16 @@ This file records the prompts and requests provided to generate and enhance **Ho
 **Implementation details:**
 - Initialized and configured git repository with `main` branch.
 - Added all project updates including official branding, favicon, OpenGraph metadata, report logo integration, and clean-slate enhancements.
-- Committed all changes with descriptive commit message.
+### 10. Monthly Budget Cap Adjustment Workflow
+> **User Command**:
+> *"How can i change the Monthly Budget Cap value"*
+
+**Implementation details:**
+- Clarified that the **Monthly Budget Cap** is calculated dynamically as the cumulative sum of category targets (Housing, Groceries, Dining, Utilities, Transportation, etc.).
+- Enhanced the **Dashboard View (`DashboardView.tsx`)**:
+  - Made the **"Monthly Budget Cap"** metric card directly clickable with an interactive hover effect and `Edit ↗` / `Manage →` buttons that jump straight to the Budgets management tab.
+  - Added an **"Edit Caps ↗"** quick-action button in the **Monthly Budget Progress Bar (`MonthlyBudgetProgressBar.tsx`)** header for one-click access.
+- Confirmed inline category target editing via the **Budgets** view table (`BudgetsView.tsx`) where clicking the ✏️ pencil icon saves updated category caps to both local storage and the SQLite database.
 
 ---
 
