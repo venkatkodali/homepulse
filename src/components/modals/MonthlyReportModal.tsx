@@ -219,16 +219,24 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
       <div className="relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl transition-all dark:border-slate-800 dark:bg-slate-900">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-800">
-          <div>
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-blue-600" />
-              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                Monthly Performance Summary Report
-              </h3>
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-10 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#071026] p-1 shadow-xs ring-1 ring-slate-800">
+              <img
+                src="/assets/aistudio/image_806b5b1b.png"
+                alt="HomePulse Logo"
+                className="h-full w-auto object-contain"
+              />
             </div>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Text-based executive audit for {reportData.monthName}
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                  Monthly Performance Summary Report
+                </h3>
+              </div>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Text-based executive audit for {reportData.monthName}
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

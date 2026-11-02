@@ -345,46 +345,68 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800/60">
-                {recentTransactions.map((tx) => {
-                  const cat = categories.find((c) => c.id === tx.category);
-
-                  return (
-                    <tr
-                      key={tx.id}
-                      onClick={() => onEditTransaction(tx)}
-                      className="cursor-pointer transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/50"
-                    >
-                      <td className="py-3 font-mono text-slate-500 tabular-nums dark:text-slate-400">
-                        {formatDate(tx.date)}
-                      </td>
-                      <td className="py-3 font-medium text-slate-800 dark:text-slate-200">
-                        {tx.title}
-                      </td>
-                      <td className="py-3 text-slate-500 dark:text-slate-400">
-                        {tx.merchant}
-                      </td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                          <span
-                            className="h-2 w-2 rounded-xs"
-                            style={{ backgroundColor: cat?.color || '#94A3B8' }}
+                {recentTransactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center">
+                      <div className="flex flex-col items-center justify-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                        <div className="relative flex h-10 w-16 items-center justify-center overflow-hidden rounded-lg bg-[#071026] p-1 shadow-xs ring-1 ring-slate-800">
+                          <img
+                            src="/assets/aistudio/image_806b5b1b.png"
+                            alt="HomePulse Logo"
+                            className="h-full w-auto object-contain"
                           />
-                          <span>{cat?.name || tx.category}</span>
                         </div>
-                      </td>
-                      <td
-                        className={`py-3 text-right font-mono font-semibold tabular-nums ${
-                          tx.type === 'income'
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-slate-900 dark:text-slate-100'
-                        }`}
+                        <p className="font-medium text-slate-600 dark:text-slate-400">
+                          No transactions recorded yet
+                        </p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                          Click &ldquo;+ Log Expense&rdquo; in the top bar or open Data Management to import a bank CSV.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  recentTransactions.map((tx) => {
+                    const cat = categories.find((c) => c.id === tx.category);
+
+                    return (
+                      <tr
+                        key={tx.id}
+                        onClick={() => onEditTransaction(tx)}
+                        className="cursor-pointer transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/50"
                       >
-                        {tx.type === 'income' ? '+' : '-'}
-                        {formatCurrency(tx.amount, currency)}
-                      </td>
-                    </tr>
-                  );
-                })}
+                        <td className="py-3 font-mono text-slate-500 tabular-nums dark:text-slate-400">
+                          {formatDate(tx.date)}
+                        </td>
+                        <td className="py-3 font-medium text-slate-800 dark:text-slate-200">
+                          {tx.title}
+                        </td>
+                        <td className="py-3 text-slate-500 dark:text-slate-400">
+                          {tx.merchant}
+                        </td>
+                        <td className="py-3">
+                          <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                            <span
+                              className="h-2 w-2 rounded-xs"
+                              style={{ backgroundColor: cat?.color || '#94A3B8' }}
+                            />
+                            <span>{cat?.name || tx.category}</span>
+                          </div>
+                        </td>
+                        <td
+                          className={`py-3 text-right font-mono font-semibold tabular-nums ${
+                            tx.type === 'income'
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-slate-900 dark:text-slate-100'
+                          }`}
+                        >
+                          {tx.type === 'income' ? '+' : '-'}
+                          {formatCurrency(tx.amount, currency)}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

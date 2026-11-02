@@ -17,6 +17,8 @@ import {
   Calendar,
   Layers,
   FolderDown,
+  Trash2,
+  ShieldAlert,
 } from 'lucide-react';
 import { CategoryInfo, CurrencyConfig, Subscription, Transaction } from '../../types';
 import { exportTransactionsToCSV, downloadFile, formatCurrency } from '../../utils/formatters';
@@ -32,6 +34,7 @@ interface ExportImportModalProps {
   currency: CurrencyConfig;
   onImportTransactions: (imported: Transaction[], replace?: boolean) => void;
   onResetDemoData: () => void;
+  onClearAllData?: (options?: { clearAllEntities?: boolean }) => void;
 }
 
 export const ExportImportModal: React.FC<ExportImportModalProps> = ({
@@ -43,6 +46,7 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
   currency,
   onImportTransactions,
   onResetDemoData,
+  onClearAllData,
 }) => {
   const [activeTab, setActiveTab] = useState<'import' | 'export'>('import');
 
@@ -55,6 +59,10 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
   const [stagedTransactions, setStagedTransactions] = useState<Transaction[] | null>(null);
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
   const [parseWarnings, setParseWarnings] = useState<string[]>([]);
+
+  // Clear All Data Confirmation State
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearAllEntities, setClearAllEntities] = useState(true);
 
   // Notifications
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -82,6 +90,19 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
     setParseWarnings([]);
     if (csvInputRef.current) csvInputRef.current.value = '';
     if (jsonInputRef.current) jsonInputRef.current.value = '';
+  };
+
+  // Clear all data handler
+  const handleExecuteClearData = () => {
+    if (onClearAllData) {
+      onClearAllData({ clearAllEntities });
+    }
+    setShowClearConfirm(false);
+    showSuccess(
+      clearAllEntities
+        ? 'All transactions, subscriptions, recurring bills, and debts have been cleared. Ready for your own data!'
+        : 'All transactions cleared from local storage. Ready for your own data!'
+    );
   };
 
   // Process raw CSV string
@@ -259,8 +280,12 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/70 dark:text-blue-400">
-              <FileSpreadsheet className="h-5 w-5" />
+            <div className="relative flex h-10 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#071026] p-1 shadow-xs ring-1 ring-slate-800">
+              <img
+                src="/assets/aistudio/image_806b5b1b.png"
+                alt="HomePulse Logo"
+                className="h-full w-auto object-contain"
+              />
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
@@ -332,6 +357,33 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
         {/* TAB 1: CSV IMPORT */}
         {activeTab === 'import' && (
           <div className="mt-4 space-y-4">
+            {/* Clean slate prompt banner if demo data exists */}
+            {transactions.length > 0 && !stagedTransactions && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200/90 bg-amber-50/70 p-3 text-xs dark:border-amber-900/50 dark:bg-amber-950/30">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-amber-950 dark:text-amber-100">
+                      Starting fresh with your personal data?
+                    </div>
+                    <div className="text-[11px] text-amber-800 dark:text-amber-300">
+                      HomePulse currently has <strong className="font-mono">{transactions.length}</strong> sample records. You can wipe them to an empty slate before importing.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirm(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-2xs transition hover:bg-rose-50 dark:border-rose-900/60 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-slate-800"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                  <span>Clear All Data</span>
+                </button>
+              </div>
+            )}
+
             {!stagedTransactions ? (
               <>
                 {/* Drag & Drop File Upload Input Container */}
@@ -744,31 +796,75 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
               </div>
             </div>
 
-            {/* Restore Sample Data */}
+            {/* Data Reset & Clean Slate Management */}
             <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Sample Dataset
+                Reset & Clean Slate Management
               </h4>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Reload the curated demo dataset with categorized transactions, recurring bills, and savings goals.
+                Reset your application local storage state to an empty slate for your personal data, or restore the sample demo dataset.
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      'Reset transactions to sample dataset? Any custom entries will be replaced.'
-                    )
-                  ) {
-                    onResetDemoData();
-                    showSuccess('Reset to rich sample dataset successfully');
-                  }
-                }}
-                className="mt-2 flex items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                <span>Reset to Sample Ledger</span>
-              </button>
+
+              <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {/* Clear All Data Button */}
+                <div className="flex flex-col justify-between rounded-xl border border-rose-200 bg-rose-50/50 p-3.5 transition dark:border-rose-900/50 dark:bg-rose-950/20">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-md bg-rose-600 text-white">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="font-semibold text-rose-950 dark:text-rose-100 text-xs">
+                        Clear All Data (Clean Slate)
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-rose-800/80 dark:text-rose-300/80">
+                      Wipes all transactions from local storage so you can start tracking with your own records from $0.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowClearConfirm(true)}
+                    className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-rose-700 active:scale-[0.98]"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Clear All Data</span>
+                  </button>
+                </div>
+
+                {/* Reset to Sample Ledger Button */}
+                <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 transition dark:border-slate-800 dark:bg-slate-800/30">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-600 text-white">
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </div>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                        Restore Sample Dataset
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                      Reload the rich pre-configured household demo ledger, recurring bills, and savings goals.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          'Restore demo dataset? Any custom data will be replaced by the default sample dataset.'
+                        )
+                      ) {
+                        onResetDemoData();
+                        showSuccess('Restored sample household dataset successfully');
+                      }
+                    }}
+                    className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 active:scale-[0.98]"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                    <span>Reset to Sample Ledger</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -787,6 +883,74 @@ export const ExportImportModal: React.FC<ExportImportModalProps> = ({
             Done
           </button>
         </div>
+
+        {/* Clear All Data Confirmation Modal Overlay */}
+        {showClearConfirm && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-slate-900/80 p-4 backdrop-blur-xs">
+            <div className="w-full max-w-md rounded-xl border border-rose-200 bg-white p-5 shadow-2xl dark:border-rose-900/60 dark:bg-slate-900">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/70 dark:text-rose-400">
+                  <ShieldAlert className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    Clear All Data & Start Fresh?
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Reset local storage to an empty slate
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3.5 rounded-lg bg-rose-50/70 p-3 text-xs text-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
+                <p className="leading-relaxed">
+                  This will remove all <strong className="font-mono font-bold">{transactions.length}</strong> transactions from your local storage and database.
+                </p>
+              </div>
+
+              {/* Entity clearing option */}
+              <div className="mt-3 space-y-2 rounded-lg border border-slate-200/80 p-3 text-xs dark:border-slate-800">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={clearAllEntities}
+                    onChange={(e) => setClearAllEntities(e.target.checked)}
+                    className="mt-0.5 rounded text-rose-600 focus:ring-rose-500"
+                  />
+                  <div className="text-slate-700 dark:text-slate-300">
+                    <span className="font-semibold">Also clear sample subscriptions, debts & recurring bills</span>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Check this to get a clean slate across all tabs. Standard budget categories (Groceries, Housing, etc.) will be preserved for your new transactions.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              <p className="mt-2.5 text-[11px] text-slate-400 dark:text-slate-500">
+                Tip: You can export a JSON or CSV backup first, or click &ldquo;Restore Sample Dataset&rdquo; at any time.
+              </p>
+
+              {/* Action Buttons */}
+              <div className="mt-4 flex items-center justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirm(false)}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteClearData}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-rose-700 active:scale-[0.98]"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Yes, Clear All Data</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -39,15 +39,28 @@ export const TopBar: React.FC<TopBarProps> = ({
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/90">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-8 px-4 sm:px-6">
-        {/* Zone 1: Single element brand wordmark */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white font-bold shadow-xs">
-            H
+        {/* Zone 1: Brand wordmark with official logo */}
+        <button
+          onClick={() => onSelectTab('dashboard')}
+          className="flex items-center gap-2.5 shrink-0 text-left focus:outline-hidden group cursor-pointer"
+          title="HomePulse Dashboard"
+        >
+          <div className="relative flex h-8.5 items-center justify-center overflow-hidden rounded-lg bg-[#071026] px-1.5 py-0.5 shadow-xs ring-1 ring-slate-800/80 transition-transform group-hover:scale-102">
+            <img
+              src="/assets/aistudio/image_806b5b1b.png"
+              alt="HomePulse Logo"
+              className="h-7 w-auto object-contain"
+            />
           </div>
-          <span className="text-base font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0 dark:text-slate-100">
-            HomePulse
-          </span>
-        </div>
+          <div className="hidden sm:flex flex-col">
+            <span className="text-base font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0 dark:text-slate-100 flex items-center gap-1.5 leading-none">
+              HomePulse
+            </span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight">
+              Household Finance
+            </span>
+          </div>
+        </button>
 
         {/* Zone 2: 4-5 clean single-line nav links */}
         <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-600 dark:text-slate-400">

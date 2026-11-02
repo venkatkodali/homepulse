@@ -163,6 +163,24 @@ app.post('/api/sqlite/reset', (req, res) => {
   }
 });
 
+app.post('/api/sqlite/clear', (req, res) => {
+  try {
+    const { clearEntities = true } = req.body || {};
+    syncAllData({
+      categories: DEFAULT_CATEGORIES,
+      transactions: [],
+      subscriptions: clearEntities ? [] : undefined,
+      debts: clearEntities ? [] : undefined,
+      recurringTransactions: clearEntities ? [] : undefined,
+      savingsGoals: clearEntities ? [] : undefined,
+    });
+    const status = getDatabaseStatus();
+    res.json({ success: true, message: 'Database transactions and records cleared', status });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // -------------------------------------------------------------
 // 2. Data Persistence & Synchronization APIs
 // -------------------------------------------------------------

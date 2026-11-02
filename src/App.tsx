@@ -75,11 +75,13 @@ export default function App() {
 
   // Ledger state
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const isCleared = localStorage.getItem('homepulse_data_cleared') === 'true';
     const saved = localStorage.getItem('homepulse_transactions') || localStorage.getItem('ledgerpulse_transactions');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
+          if (parsed.length === 0) return [];
           // Ensure all IDs are strictly unique in case old cached data exists
           const seen = new Set<string>();
           return parsed.map((t: Transaction, idx: number) => {
@@ -96,7 +98,7 @@ export default function App() {
         // Fallback to default
       }
     }
-    return INITIAL_TRANSACTIONS;
+    return isCleared ? [] : INITIAL_TRANSACTIONS;
   });
 
   useEffect(() => {
@@ -123,14 +125,15 @@ export default function App() {
 
   // Subscriptions state
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => {
+    const isCleared = localStorage.getItem('homepulse_data_cleared') === 'true';
     const saved = localStorage.getItem('homepulse_subscriptions') || localStorage.getItem('ledgerpulse_subscriptions');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
       } catch (e) {}
     }
-    return DEFAULT_SUBSCRIPTIONS;
+    return isCleared ? [] : DEFAULT_SUBSCRIPTIONS;
   });
 
   useEffect(() => {
@@ -139,14 +142,15 @@ export default function App() {
 
   // Savings goals state
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(() => {
+    const isCleared = localStorage.getItem('homepulse_data_cleared') === 'true';
     const saved = localStorage.getItem('homepulse_goals') || localStorage.getItem('ledgerpulse_goals');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
       } catch (e) {}
     }
-    return DEFAULT_SAVINGS_GOALS;
+    return isCleared ? [] : DEFAULT_SAVINGS_GOALS;
   });
 
   useEffect(() => {
@@ -155,14 +159,15 @@ export default function App() {
 
   // Debts state
   const [debts, setDebts] = useState<DebtItem[]>(() => {
+    const isCleared = localStorage.getItem('homepulse_data_cleared') === 'true';
     const saved = localStorage.getItem('homepulse_debts') || localStorage.getItem('ledgerpulse_debts');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {}
     }
-    return DEFAULT_DEBTS;
+    return isCleared ? [] : DEFAULT_DEBTS;
   });
 
   useEffect(() => {
@@ -171,14 +176,15 @@ export default function App() {
 
   // Recurring transactions state
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>(() => {
+    const isCleared = localStorage.getItem('homepulse_data_cleared') === 'true';
     const saved = localStorage.getItem('homepulse_recurring') || localStorage.getItem('ledgerpulse_recurring');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {}
     }
-    return DEFAULT_RECURRING_TRANSACTIONS;
+    return isCleared ? [] : DEFAULT_RECURRING_TRANSACTIONS;
   });
 
   useEffect(() => {
@@ -187,6 +193,10 @@ export default function App() {
 
   // Hydrate from SQLite database on initial load if available
   const handleRefreshDataFromDb = async () => {
+    const isCleared = localStorage.getItem('homepulse_data_cleared') === 'true';
+    if (isCleared) {
+      return;
+    }
     try {
       const res = await fetch('/api/data');
       if (res.ok) {
@@ -411,7 +421,49 @@ export default function App() {
     }
   };
 
+  const handleClearAllData = (options?: { clearAllEntities?: boolean }) => {
+    // 1. Mark clean slate in localStorage
+    localStorage.setItem('homepulse_data_cleared', 'true');
+
+    // 2. Clear transactions state & localStorage
+    setTransactions([]);
+    localStorage.setItem('homepulse_transactions', JSON.stringify([]));
+
+    // 3. Clear other sample entities if requested
+    if (options?.clearAllEntities) {
+      setSubscriptions([]);
+      setDebts([]);
+      setRecurringTransactions([]);
+      setSavingsGoals([]);
+      localStorage.setItem('homepulse_subscriptions', JSON.stringify([]));
+      localStorage.setItem('homepulse_debts', JSON.stringify([]));
+      localStorage.setItem('homepulse_recurring', JSON.stringify([]));
+      localStorage.setItem('homepulse_goals', JSON.stringify([]));
+    }
+
+    // 4. Sync cleared state to SQLite database
+    fetch('/api/sqlite/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clearEntities: !!options?.clearAllEntities }),
+    }).catch(() => {
+      fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transactions: [],
+          categories,
+          subscriptions: options?.clearAllEntities ? [] : subscriptions,
+          debts: options?.clearAllEntities ? [] : debts,
+          recurringTransactions: options?.clearAllEntities ? [] : recurringTransactions,
+          savingsGoals: options?.clearAllEntities ? [] : savingsGoals,
+        }),
+      }).catch(() => {});
+    });
+  };
+
   const handleResetDemoData = () => {
+    localStorage.removeItem('homepulse_data_cleared');
     setTransactions(INITIAL_TRANSACTIONS);
     setCategories(DEFAULT_CATEGORIES);
     setSubscriptions(DEFAULT_SUBSCRIPTIONS);
@@ -420,6 +472,15 @@ export default function App() {
     setDebts(DEFAULT_DEBTS);
     setDateFilter({ preset: 'this_month' });
     setSelectedCategory(null);
+
+    localStorage.setItem('homepulse_transactions', JSON.stringify(INITIAL_TRANSACTIONS));
+    localStorage.setItem('homepulse_categories', JSON.stringify(DEFAULT_CATEGORIES));
+    localStorage.setItem('homepulse_subscriptions', JSON.stringify(DEFAULT_SUBSCRIPTIONS));
+    localStorage.setItem('homepulse_recurring', JSON.stringify(DEFAULT_RECURRING_TRANSACTIONS));
+    localStorage.setItem('homepulse_goals', JSON.stringify(DEFAULT_SAVINGS_GOALS));
+    localStorage.setItem('homepulse_debts', JSON.stringify(DEFAULT_DEBTS));
+
+    fetch('/api/sqlite/reset', { method: 'POST' }).catch(() => {});
   };
 
   return (
@@ -588,6 +649,7 @@ export default function App() {
         currency={currency}
         onImportTransactions={handleImportTransactions}
         onResetDemoData={handleResetDemoData}
+        onClearAllData={handleClearAllData}
       />
 
       <MonthlyReportModal

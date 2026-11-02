@@ -101,6 +101,60 @@ This file records the prompts and requests provided to generate and enhance **Ho
 
 ---
 
+### 6. Dependency Resolution Fix (`esbuild` & `vite 8`)
+> **User Command / Issue**:
+> *"npm install -> npm error code ERESOLVE: Could not resolve dependency: peerOptional esbuild@^0.27.0 || ^0.28.0 from vite@8.3.5, Found: esbuild@0.25.12"*
+
+**Implementation details:**
+- Vite 8 requires peer optional `esbuild` version `^0.27.0 || ^0.28.0`.
+- Updated `devDependencies` in `package.json` from `"esbuild": "^0.25.0"` to `"esbuild": "^0.28.0"`.
+- Cleaned peer dependency conflict for seamless `npm install` on local clones without requiring `--legacy-peer-deps`.
+
+---
+
+### 7. Clean Slate & 'Clear All Data' Feature
+> **User Commands**:
+> - *"How can i remove sample data and start with my own data"*
+> - *"Create a 'Clear All Data' button within the Export/Import modal that allows users to reset their local storage state to empty, providing a clean slate for their own personal transaction data."*
+
+**Implementation details:**
+- Added a prominent **"Clear All Data (Clean Slate)"** button within the `ExportImportModal`:
+  - **Export & Reports Tab**: Dedicated "Reset & Clean Slate Management" card with a red action button to empty local storage and database records.
+  - **Import CSV Tab**: Contextual banner notifying users of existing sample data with a quick 1-click "Clear All Data" action before uploading bank statements.
+- Added safety confirmation modal with:
+  - Clear breakdown of items to be removed.
+  - Checkbox option to also clear sample subscriptions, recurring bills, and debts (enabled by default).
+  - Preservation of standard budget category definitions (Groceries, Housing, Utilities, etc.) so users can immediately log personal transactions without configuring categories from scratch.
+  - Safety tip with instant option to restore the default sample dataset at any time.
+- Updated application state logic in `App.tsx`:
+  - Supported empty local storage arrays (`homepulse_transactions: []`) without falling back to demo data.
+  - Added `homepulse_data_cleared` persistence flag so page reloads honor the clean slate.
+  - Added `POST /api/sqlite/clear` backend endpoint to synchronize database tables alongside local storage.
+  - Added clean empty-state displays on the Dashboard and Transactions views.
+
+### 8. Official Brand Logo Integration
+> **User Command**:
+> *"Please add this logo to the app"* (with user attachment `/public/assets/aistudio/image_806b5b1b.png`)
+
+**Implementation details:**
+- Integrated the provided high-resolution HomePulse logo mark (featuring house symbol, financial pulse waveform, upward growth arrow, bar chart, and "HomePul$e" branding on midnight-navy backdrop).
+- **Navigation Bar (`TopBar.tsx`)**: Replaced the initial generic letter avatar with a sleek, clickable logo badge (`image_806b5b1b.png`) with responsive branding and dashboard navigation on click.
+- **Favicon & Web App Identity (`index.html`)**: Added high-resolution favicon links, Apple touch icon, and OpenGraph/Twitter social cards pointing directly to `/assets/aistudio/image_806b5b1b.png`.
+- **Monthly Summary Report Modal (`MonthlyReportModal.tsx`)**: Incorporated the brand logo in the report header for executive presentation and printed audits.
+- **Data Management & CSV Import Modal (`ExportImportModal.tsx`)**: Promoted brand identity in the data import/export modal header.
+- **Empty State Display (`DashboardView.tsx`)**: Enhanced clean-slate dashboard empty state with the official logo badge.
+
+### 9. Git Commit & Repository Synchronization
+> **User Command**:
+> *"Commit chnages to git"*
+
+**Implementation details:**
+- Initialized and configured git repository with `main` branch.
+- Added all project updates including official branding, favicon, OpenGraph metadata, report logo integration, and clean-slate enhancements.
+- Committed all changes with descriptive commit message.
+
+---
+
 ## 🛠️ Technology Stack Summary
 
 | Layer | Technologies |
