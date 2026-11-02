@@ -1,0 +1,6 @@
+{
+  "name": "HomePulse",
+  "description": "Modern financial expense tracking and analytics platform featuring interactive spending trends, category distributions, budget variance tracking, and cash flow visualization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
