@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Receipt, Tag, Calendar, DollarSign, Building2, Sparkles, Loader2, Check } from 'lucide-react';
 import { CategoryInfo, CurrencyConfig, PaymentMethod, RecurringTransaction, Transaction, TransactionType } from '../../types';
 import { suggestCategoryForTransaction, CategorySuggestion } from '../../utils/categorySuggester';
@@ -10,6 +10,7 @@ interface AddTransactionModalProps {
   onAddRecurring?: (rule: Omit<RecurringTransaction, 'id'>) => void;
   categories: CategoryInfo[];
   currency: CurrencyConfig;
+  existingTransactions?: Transaction[];
 }
 
 export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
@@ -19,6 +20,7 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   onAddRecurring,
   categories,
   currency,
+  existingTransactions = [],
 }) => {
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState<string>('');
@@ -39,6 +41,62 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
   const [isSuggesting, setIsSuggesting] = useState<boolean>(false);
   const [userSelectedManually, setUserSelectedManually] = useState<boolean>(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Derive frequently used tags from existing transactions
+  const frequentTags = useMemo(() => {
+    const tagCounts = new Map<string, number>();
+
+    if (Array.isArray(existingTransactions)) {
+      for (const tx of existingTransactions) {
+        if (Array.isArray(tx.tags)) {
+          for (const rawTag of tx.tags) {
+            const clean = rawTag.trim().toLowerCase();
+            if (clean && clean.length > 1) {
+              tagCounts.set(clean, (tagCounts.get(clean) || 0) + 1);
+            }
+          }
+        }
+      }
+    }
+
+    // Default suggestions if user has few or no tags yet
+    const defaults = ['groceries', 'dining', 'bills', 'subscription', 'work', 'travel', 'health', 'entertainment'];
+    for (const def of defaults) {
+      if (!tagCounts.has(def)) {
+        tagCounts.set(def, 0);
+      }
+    }
+
+    // Sort by frequency count descending, then alphabetically
+    return Array.from(tagCounts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 10)
+      .map(([tag, count]) => ({ tag, count }));
+  }, [existingTransactions]);
+
+  // Current active tags parsed from input
+  const activeTagsList = useMemo(() => {
+    return tagsInput
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length > 0);
+  }, [tagsInput]);
+
+  const activeTagsSet = useMemo(() => new Set(activeTagsList), [activeTagsList]);
+
+  // One-click toggle tag selection
+  const handleToggleTag = (tagToToggle: string) => {
+    const normalized = tagToToggle.trim().toLowerCase();
+    if (activeTagsSet.has(normalized)) {
+      // Remove tag
+      const updated = activeTagsList.filter((t) => t !== normalized);
+      setTagsInput(updated.join(', '));
+    } else {
+      // Add tag
+      const updated = [...activeTagsList, normalized];
+      setTagsInput(updated.join(', '));
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -413,9 +471,20 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
-                Tags (comma separated)
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Tags (comma separated)
+                </label>
+                {activeTagsList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setTagsInput('')}
+                    className="text-[10px] text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors"
+                  >
+                    Clear ({activeTagsList.length})
+                  </button>
+                )}
+              </div>
               <div className="relative mt-1">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
                   <Tag className="h-3.5 w-3.5" />
@@ -424,10 +493,59 @@ export const AddTransactionModal: React.FC<AddTransactionModalProps> = ({
                   type="text"
                   value={tagsInput}
                   onChange={(e) => setTagsInput(e.target.value)}
-                  placeholder="groceries, dinner, work"
+                  placeholder="e.g. groceries, dinner, work"
                   className="block w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Frequently Used Tags Suggestion Section */}
+          <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-slate-800/80 dark:bg-slate-800/40">
+            <div className="flex items-center justify-between text-xs mb-2">
+              <span className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+                <Tag className="h-3.5 w-3.5 text-blue-500" />
+                <span>Frequently Used Tags</span>
+              </span>
+              <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                1-click to select or remove
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {frequentTags.map(({ tag, count }) => {
+                const isSelected = activeTagsSet.has(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => handleToggleTag(tag)}
+                    className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-2xs font-semibold hover:bg-blue-700'
+                        : 'bg-white border border-slate-200/90 text-slate-700 hover:border-blue-300 hover:bg-blue-50/60 hover:text-blue-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:border-blue-600 dark:hover:bg-slate-700/60 dark:hover:text-blue-300'
+                    }`}
+                    title={isSelected ? `Click to remove "${tag}"` : `Click to add "${tag}"`}
+                  >
+                    {isSelected ? (
+                      <Check className="h-3 w-3 stroke-[2.5]" />
+                    ) : (
+                      <span className="text-slate-400 text-xs font-bold leading-none">+</span>
+                    )}
+                    <span>#{tag}</span>
+                    {count > 0 && (
+                      <span
+                        className={`text-[10px] ml-0.5 px-1.5 py-0.2 rounded-full font-mono ${
+                          isSelected
+                            ? 'bg-blue-700/80 text-blue-100'
+                            : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

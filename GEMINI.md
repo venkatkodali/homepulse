@@ -202,7 +202,18 @@ This file records the prompts and requests provided to generate and enhance **Ho
 **Implementation details:**
 - Terminated orphan node/tsx server tasks to ensure a single clean control-plane process.
 - Configured explicit `optimizeDeps.include` in `vite.config.ts` for all core client packages (`react`, `react-dom`, `recharts`, `jspdf`, `clsx`, `lucide-react`, `motion`).
-- Re-bundled Vite cache and verified full module crawl: all 42 frontend modules loaded with 0 errors.
+### 14. Frequently Used Tags Suggestion List in AddTransactionModal
+> **User Command**:
+> *"Update the AddTransactionModal to include a 'Frequently Used Tags' suggestion list based on existing transactions, allowing users to select tags with one click during creation."*
+
+**Implementation details:**
+- Enhanced `AddTransactionModal` with an interactive **Frequently Used Tags** section:
+  - Dynamically computes tag frequencies across all existing transactions with fallback to common household expense categories (`groceries`, `dining`, `bills`, `subscription`, `work`, `travel`, `health`, `entertainment`).
+  - Renders top tags with individual usage count badges.
+  - Enabled **one-click toggle interaction**: clicking an unselected tag appends it to the comma-separated tags field and highlights it with a checkmark badge (`✓`), while clicking an active tag deselects and removes it.
+  - Added real-time bidirectional synchronization: typing in the tags text box automatically toggles the corresponding tag chips.
+  - Added a convenient `Clear (N)` button when tags are active.
+  - Passed `existingTransactions={transactions}` from application state in `App.tsx`.
 
 ---
 

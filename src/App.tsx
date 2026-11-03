@@ -759,6 +759,7 @@ export default function App() {
         onAddRecurring={handleAddRecurring}
         categories={categories}
         currency={currency}
+        existingTransactions={transactions}
       />
 
       <RecurringTransactionsModal
