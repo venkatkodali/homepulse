@@ -12,10 +12,12 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@babel/runtime": "^8.1.0",
     "@google/genai": "^2.32.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
     "better-sqlite3": "^13.0.3",
+    "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "jspdf": "^4.2.1",

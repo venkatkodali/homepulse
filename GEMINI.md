@@ -180,7 +180,18 @@ This file records the prompts and requests provided to generate and enhance **Ho
   - Added a 3.5-second lightweight version poller on the frontend.
   - Added immediate sync triggers on `window.focus` and `document.visibilitychange` so waking up a phone screen or switching tabs instantly refreshes from the central database.
 - **Live Sync Indicator**:
-  - Added a real-time sync status badge (`Live Sync` / `Syncing...`) in `TopBar.tsx` providing visual confirmation of database connectivity and 1-click manual refresh.
+### 12. Dev Server Recovery & Dependency Resolution (`clsx` & `@babel/runtime`)
+> **User Command**:
+> *"The dev server didn't start, please fix it"*
+
+**Root cause analysis:**
+- Vite pre-bundling failed due to unlisted transitive dependencies required by `recharts` (`clsx`) and `jspdf` (`@babel/runtime`).
+- The development process was not actively listening on port 3000.
+
+**Implementation details:**
+- Installed `clsx` and `@babel/runtime` directly into `package.json` dependencies.
+- Re-compiled and verified clean bundle compilation with Vite and TypeScript.
+- Restarted the development server and confirmed HTTP 200 responses on `http://0.0.0.0:3000`.
 
 ---
 
