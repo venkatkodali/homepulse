@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { X } from 'lucide-react';
 import {
   CategoryInfo,
   CurrencyConfig,
@@ -369,8 +370,26 @@ export default function App() {
   const [isExportImportModalOpen, setIsExportImportModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
-  // Filtered transactions for active view
-  const scopedTransactions = filterTransactionsByDate(transactions, dateFilter);
+  // Global search state (merchant, title, or tags)
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Globally filter transactions by merchant, title, or tags
+  const filteredTransactions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return transactions;
+    return transactions.filter((t) => {
+      const merchantMatch = t.merchant?.toLowerCase().includes(query);
+      const titleMatch = t.title?.toLowerCase().includes(query);
+      const tagsMatch = Array.isArray(t.tags) && t.tags.some((tag) => tag.toLowerCase().includes(query));
+      const notesMatch = t.notes?.toLowerCase().includes(query);
+      return merchantMatch || titleMatch || tagsMatch || notesMatch;
+    });
+  }, [transactions, searchQuery]);
+
+  // Filtered transactions for active view (scoped by date and search)
+  const scopedTransactions = useMemo(() => {
+    return filterTransactionsByDate(filteredTransactions, dateFilter);
+  }, [filteredTransactions, dateFilter]);
 
   // Recurring transaction handlers
   const handleAddRecurring = (newRule: Omit<RecurringTransaction, 'id'>) => {
@@ -640,10 +659,35 @@ export default function App() {
         onOpenReportModal={() => setIsReportModalOpen(true)}
         syncStatus={syncStatus}
         onTriggerSync={() => handleRefreshDataFromDb(true)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        matchingCount={filteredTransactions.length}
       />
 
       {/* 2. Main Viewport Container */}
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        {/* Global Search Active Filter Banner */}
+        {searchQuery.trim() && (
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/90 px-4 py-2.5 text-xs text-blue-900 dark:border-blue-800/80 dark:bg-blue-950/40 dark:text-blue-200 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
+              <span>
+                Filtered by global search: <strong className="font-semibold underline decoration-blue-400">"{searchQuery.trim()}"</strong> (merchant, title, or tags)
+              </span>
+              <span className="rounded-md bg-blue-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                {filteredTransactions.length} {filteredTransactions.length === 1 ? 'match' : 'matches'}
+              </span>
+            </div>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="flex items-center gap-1 font-semibold text-blue-700 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-100 transition-colors cursor-pointer"
+            >
+              <span>Clear search</span>
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
         {currentTab === 'dashboard' && (
           <DashboardView
             transactions={scopedTransactions}
@@ -668,7 +712,7 @@ export default function App() {
 
         {currentTab === 'transactions' && (
           <TransactionsView
-            transactions={transactions}
+            transactions={filteredTransactions}
             categories={categories}
             currency={currency}
             recurringTransactions={recurringTransactions}
@@ -686,7 +730,7 @@ export default function App() {
 
         {currentTab === 'analytics' && (
           <AnalyticsView
-            transactions={transactions}
+            transactions={filteredTransactions}
             categories={categories}
             subscriptions={subscriptions}
             recurringTransactions={recurringTransactions}
@@ -703,7 +747,7 @@ export default function App() {
         {currentTab === 'budgets' && (
           <BudgetsView
             categories={categories}
-            transactions={transactions}
+            transactions={filteredTransactions}
             savingsGoals={savingsGoals}
             currency={currency}
             onUpdateCategoryBudget={handleUpdateCategoryBudget}
@@ -727,7 +771,7 @@ export default function App() {
           <DebtsView
             debts={debts}
             savingsGoals={savingsGoals}
-            transactions={transactions}
+            transactions={filteredTransactions}
             currency={currency}
             onAddDebt={handleAddDebt}
             onUpdateDebt={handleUpdateDebt}
@@ -738,7 +782,7 @@ export default function App() {
 
         {currentTab === 'sqlite' && (
           <SqliteView
-            transactions={transactions}
+            transactions={filteredTransactions}
             categories={categories}
             subscriptions={subscriptions}
             debts={debts}

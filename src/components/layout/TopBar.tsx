@@ -1,5 +1,5 @@
-import React from 'react';
-import { Plus, Sun, Moon, Database, ChevronDown, FileText, RefreshCw } from 'lucide-react';
+import React, { useRef, useEffect } from 'react';
+import { Plus, Sun, Moon, Database, ChevronDown, FileText, RefreshCw, Search, X } from 'lucide-react';
 import { CurrencyConfig, ViewTab } from '../../types';
 import { SUPPORTED_CURRENCIES } from '../../data/initialData';
 
@@ -15,6 +15,9 @@ interface TopBarProps {
   onOpenReportModal: () => void;
   syncStatus?: 'synced' | 'syncing' | 'error';
   onTriggerSync?: () => void;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
+  matchingCount?: number;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -29,7 +32,32 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenReportModal,
   syncStatus = 'synced',
   onTriggerSync,
+  searchQuery = '',
+  onSearchChange,
+  matchingCount,
 }) => {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard shortcut listener ('/' or 'Cmd+K' to focus global search, 'Escape' to clear/blur)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key === 'k')) &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === 'Escape' && document.activeElement === searchInputRef.current) {
+        if (searchQuery) {
+          onSearchChange?.('');
+        }
+        searchInputRef.current?.blur();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchQuery, onSearchChange]);
   const navTabs: { id: ViewTab; label: string }[] = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'transactions', label: 'Ledger' },
@@ -86,8 +114,40 @@ export const TopBar: React.FC<TopBarProps> = ({
           })}
         </nav>
 
-        {/* Zone 3: Utilities + 1 Primary Action */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Zone 3: Search + Utilities + 1 Primary Action */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Global Search Bar */}
+          <div className="relative flex items-center">
+            <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              placeholder="Search merchant, title, tags..."
+              aria-label="Search transactions by merchant, title, or tags"
+              className="w-28 sm:w-44 md:w-52 lg:w-64 rounded-lg border border-slate-200 bg-slate-50/90 py-1.5 pl-8 pr-7 text-xs text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-500 dark:focus:bg-slate-800 transition-all duration-150"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onSearchChange?.('');
+                  searchInputRef.current?.focus();
+                }}
+                className="absolute right-1.5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded cursor-pointer"
+                title="Clear search (Esc)"
+                aria-label="Clear search"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            ) : (
+              <kbd className="pointer-events-none absolute right-2 hidden xl:inline-flex items-center rounded border border-slate-200 bg-white px-1 text-[9px] font-mono text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                /
+              </kbd>
+            )}
+          </div>
+
           {/* Currency dropdown */}
           <div className="relative">
             <select

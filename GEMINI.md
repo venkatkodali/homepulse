@@ -213,7 +213,22 @@ This file records the prompts and requests provided to generate and enhance **Ho
   - Enabled **one-click toggle interaction**: clicking an unselected tag appends it to the comma-separated tags field and highlights it with a checkmark badge (`✓`), while clicking an active tag deselects and removes it.
   - Added real-time bidirectional synchronization: typing in the tags text box automatically toggles the corresponding tag chips.
   - Added a convenient `Clear (N)` button when tags are active.
-  - Passed `existingTransactions={transactions}` from application state in `App.tsx`.
+### 15. Global Search Bar in TopBar Across All Views
+> **User Command**:
+> *"Implement a global search bar in the TopBar component to allow users to quickly filter transactions by merchant, title, or tags across all views."*
+
+**Implementation details:**
+- **TopBar Search Input (`TopBar.tsx`)**:
+  - Implemented a sleek global search input with `Search` icon, clean clear button (`X`), and keyboard shortcut indicator (`/` or `Cmd+K` / `Ctrl+K`).
+  - Added global keyboard listener: pressing `/` or `Cmd+K` immediately focuses the search field from anywhere in the app, while `Esc` clears or blurs it.
+- **Cross-View Multi-Attribute Transaction Filtering (`App.tsx`)**:
+  - Implemented reactive `filteredTransactions` matching query text across `merchant`, `title` (description), and `tags` arrays.
+  - Propagated filtered transactions to all views: **Dashboard**, **Ledger (Transactions)**, **Analytics**, **Budgets**, **Debts**, and **SQLite Studio**.
+  - Dashboard scoped transactions immediately adjust cash flow charts, burn velocity, and category totals to reflect filtered transactions.
+- **Active Filter Indicator Banner (`App.tsx`)**:
+  - Displays a clean visual notification bar when search is active showing current filter query, number of matching transactions, and an instant 1-click **"Clear search"** action.
+- **Ledger Local Search Tag Matching (`TransactionsView.tsx`)**:
+  - Updated ledger table search to also filter by `tags` in addition to description and merchant payee.
 
 ---
 

@@ -61,12 +61,13 @@ export const TransactionsView: React.FC<TransactionsViewProps> = ({
   // Filter & Sort
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
-      // State-based search filter: filter by merchant name or description
+      // State-based search filter: filter by merchant name, description, or tags
       if (searchTerm.trim()) {
         const query = searchTerm.trim().toLowerCase();
         const matchesDescription = tx.title.toLowerCase().includes(query);
         const matchesMerchant = tx.merchant.toLowerCase().includes(query);
-        if (!matchesDescription && !matchesMerchant) {
+        const matchesTags = Array.isArray(tx.tags) && tx.tags.some((t) => t.toLowerCase().includes(query));
+        if (!matchesDescription && !matchesMerchant && !matchesTags) {
           return false;
         }
       }
