@@ -191,7 +191,18 @@ This file records the prompts and requests provided to generate and enhance **Ho
 **Implementation details:**
 - Installed `clsx` and `@babel/runtime` directly into `package.json` dependencies.
 - Re-compiled and verified clean bundle compilation with Vite and TypeScript.
-- Restarted the development server and confirmed HTTP 200 responses on `http://0.0.0.0:3000`.
+### 13. Preview Resolution & Vite OptimizeDeps Configuration
+> **User Command**:
+> *"Preview not showing"*
+
+**Root cause analysis:**
+- Vite 8 dynamic dependency discovery was triggering `504 Outdated Optimize Dep` on runtime requests for `recharts` and `jspdf` due to orphan background processes and missing pre-bundle definitions.
+- Orphan node processes were competing for memory and cache locks.
+
+**Implementation details:**
+- Terminated orphan node/tsx server tasks to ensure a single clean control-plane process.
+- Configured explicit `optimizeDeps.include` in `vite.config.ts` for all core client packages (`react`, `react-dom`, `recharts`, `jspdf`, `clsx`, `lucide-react`, `motion`).
+- Re-bundled Vite cache and verified full module crawl: all 42 frontend modules loaded with 0 errors.
 
 ---
 

@@ -11,6 +11,17 @@ export default defineConfig(() => {
         '@': path.resolve(import.meta.dirname || process.cwd(), '.'),
       },
     },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'recharts',
+        'jspdf',
+        'clsx',
+        'lucide-react',
+        'motion',
+      ],
+    },
     server: {
       port: 3000,
       host: '0.0.0.0',
